@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
         echo json_encode(['status' => 'error', 'message' => 'Company not found']);
     }
 } else {
-    http_response_code(405);
+    http_response_code('error',405);
     echo json_encode(['status' => 'error', 'message' => 'Invalid request method']);
 }
 ?>
