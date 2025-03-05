@@ -1,40 +1,42 @@
 <?php
-include("../db.php"); // Database connection
-include("../header.php");
+include("../db.php"); // Ensure database connection
 
-if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-    if (!isset($_GET['company_name']) || empty($_GET['company_name'])) {
-        http_response_code(400);
-        echo json_encode(['status' => 'error', 'message' => 'Missing company_name']);
-        exit;
-    }
+header("Content-Type: application/json");
 
-    $company_name = mysqli_real_escape_string($db, $_GET['company_name']);
+if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['company_id']) && is_numeric($_GET['company_id'])) {
+    $company_id = intval($_GET['company_id']); // Convert input to integer
 
-    // Get the company ID from comp_info table
-    $company_query = "SELECT id FROM comp_info WHERE company_name = '$company_name'";
-    $company_result = $db->query($company_query);
+    // Check if company exists
+    $company_query = $db->prepare("SELECT company_name FROM comp_info WHERE id = ?");
+    $company_query->bind_param("i", $company_id);
+    $company_query->execute();
+    $company_result = $company_query->get_result();
 
     if ($company_result->num_rows > 0) {
         $company = $company_result->fetch_assoc();
-        $comp_info_id = $company['id'];
+        $company_name = $company['company_name'];
 
-        // Get all acc_no from acc_entry table for this company
-        $acc_query = "SELECT acc_no FROM acc_entry WHERE comp_info_id = $comp_info_id";
-        $acc_result = $db->query($acc_query);
-        
-        $account_numbers = [];
+        // Fetch all account details for the company
+        $acc_query = $db->prepare("SELECT id, acc_no, legal_name, comp_name_card, entity, buisness_type, city, phone_1, mobile, email 
+                                   FROM acc_entry WHERE comp_info_id = ?");
+        $acc_query->bind_param("i", $company_id);
+        $acc_query->execute();
+        $acc_result = $acc_query->get_result();
+
+        $account_details = [];
         while ($row = $acc_result->fetch_assoc()) {
-            $account_numbers[] = $row['acc_no'];
+            $account_details[] = $row; // Store full account details
         }
 
-        echo json_encode(['status' => 'success', 'company_name' => $company_name, 'account_numbers' => $account_numbers]);
+        echo json_encode([
+            "company_id" => $company_id,
+            "company_name" => $company_name,
+            "accounts" => $account_details
+        ]);
     } else {
-        http_response_code(404);
-        echo json_encode(['status' => 'error', 'message' => 'Company not found']);
+        echo json_encode(["error" => "Company not found"]);
     }
 } else {
-    http_response_code('error',405);
-    echo json_encode(['status' => 'error', 'message' => 'Invalid request method']);
+    echo json_encode(["error" => "Invalid request"]);
 }
 ?>
